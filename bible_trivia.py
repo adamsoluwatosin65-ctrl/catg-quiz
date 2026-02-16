@@ -95,7 +95,9 @@ elif st.session_state.page == 'register':
     st.markdown("<h2 style='text-align: center; color: #1e5631;'>Player Entry</h2>", unsafe_allow_html=True)
     name = st.text_input("Player Name")
     limit = st.selectbox("Select Time Limit (Seconds)", [30, 60, 120, 300], index=1)
-    if st.button("START QUIZ"):
+    
+    col1, col2 = st.columns(2)
+    if col1.button("START QUIZ"):
         if name:
             all_qs = json.load(open('questions.json')) if os.path.exists('questions.json') else []
             indices = list(range(len(all_qs)))
@@ -104,9 +106,12 @@ elif st.session_state.page == 'register':
                 'page': 'quiz', 'p_name': name, 'time_limit': limit,
                 'start_time': time.time(), 'score': 0, 
                 'shuffled_indices': indices, 'current_step': 0,
-                'wrong_answers': [] # Reset mistakes for new player
+                'wrong_answers': []
             })
             st.rerun()
+    if col2.button("QUIT"):
+        st.session_state.clear()
+        st.rerun()
 
 elif st.session_state.page == 'quiz':
     play_audio("background_music.mp3")
@@ -125,12 +130,7 @@ elif st.session_state.page == 'quiz':
                 if opt == q['answer']: 
                     st.session_state.score += 1
                 else:
-                    # Record mistake
-                    st.session_state.wrong_answers.append({
-                        'question': q['question'],
-                        'correct': q['answer'],
-                        'yours': opt
-                    })
+                    st.session_state.wrong_answers.append({'question': q['question'], 'correct': q['answer'], 'yours': opt})
                 st.session_state.current_step += 1
                 st.rerun()
     else:
@@ -142,19 +142,10 @@ elif st.session_state.page == 'summary':
     st.markdown(f"<h1 style='text-align: center;'>Round Over, {st.session_state.p_name}!</h1>", unsafe_allow_html=True)
     st.markdown(f"<div class='question-box' style='text-align:center;'><h2>Your Score: {st.session_state.score}</h2></div>", unsafe_allow_html=True)
     
-    # --- MISTAKE REVIEW SECTION ---
     if st.session_state.wrong_answers:
         with st.expander("🔍 Review Failed Questions"):
             for item in st.session_state.wrong_answers:
-                st.markdown(f"""
-                <div class="review-box">
-                    <p><b>Q:</b> {item['question']}</p>
-                    <p style="color: red;"><b>Your Answer:</b> {item['yours']}</p>
-                    <p style="color: green;"><b>Correct Answer:</b> {item['correct']}</p>
-                </div>
-                """, unsafe_allow_html=True)
-    else:
-        st.success("Perfect Round! No mistakes to review. 🌟")
+                st.markdown(f"""<div class="review-box"><p><b>Q:</b> {item['question']}</p><p style="color: red;"><b>Your Answer:</b> {item['yours']}</p><p style="color: green;"><b>Correct Answer:</b> {item['correct']}</p></div>""", unsafe_allow_html=True)
 
     colA, colB, colC = st.columns(3)
     if colA.button("NEXT PLAYER"):
@@ -165,17 +156,13 @@ elif st.session_state.page == 'summary':
         st.rerun()
     if colC.button("QUIT"):
         st.session_state.clear()
-        st.session_state.page = 'welcome'
         st.rerun()
 
 elif st.session_state.page == 'final':
     play_audio("winner_sound.mp3.mp3", loop=False)
     
     balloon_list = ["🎈", "🎊", "✨", "⭐", "🎈"]
-    balloons_html = "".join([
-        f'<div class="balloon" style="left:{random.randint(0,95)}%; bottom:{random.randint(-20, 50)}vh; animation-delay:{random.uniform(0,8)}s;">{random.choice(balloon_list)}</div>' 
-        for _ in range(40) 
-    ])
+    balloons_html = "".join([f'<div class="balloon" style="left:{random.randint(0,95)}%; bottom:{random.randint(-20, 50)}vh; animation-delay:{random.uniform(0,8)}s;">{random.choice(balloon_list)}</div>' for _ in range(40)])
     st.markdown(balloons_html, unsafe_allow_html=True)
     
     st.markdown("<h1 style='text-align: center; color: #1e5631;'>🏆 TOURNAMENT STANDINGS 🏆</h1>", unsafe_allow_html=True)
@@ -185,10 +172,13 @@ elif st.session_state.page == 'final':
         st.markdown(f"<div class='rank-card {rank}'>{i+1}. {n.upper()} — {s} PTS</div>", unsafe_allow_html=True)
         
     st.markdown("---")
-    c1, c2 = st.columns(2)
+    c1, c2, c3 = st.columns(3)
     if c1.button("NEXT PLAYER"):
         st.session_state.page = 'register'
         st.rerun()
     if c2.button("RESET ALL"):
+        st.session_state.clear()
+        st.rerun()
+    if c3.button("QUIT"):
         st.session_state.clear()
         st.rerun()
