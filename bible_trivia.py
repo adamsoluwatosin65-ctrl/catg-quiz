@@ -1,13 +1,105 @@
+import streamlit as st
+import json, time, os, random
+
+# --- PAGE CONFIG ---
+# This must be the first Streamlit command to avoid the NameError
+st.set_page_config(page_title="CATG Quiz Pro", layout="centered")
+
+# --- HIGH-END ANIMATED DESIGN ---
+st.markdown("""
+    <style>
+    audio { display: none; }
+
+    .stApp {
+        background: linear-gradient(-45deg, #1e5631, #2a7a45, #a8e063, #f0f4f1);
+        background-size: 400% 400%;
+        animation: activeGradient 12s ease infinite;
+        background-attachment: fixed;
+    }
+
+    @keyframes activeGradient {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    .stApp::before {
+        content: "";
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.1) 0%, transparent 50%);
+        animation: auraMove 8s infinite alternate;
+        pointer-events: none;
+    }
+
+    @keyframes auraMove {
+        from { transform: scale(1) translate(-10%, -10%); }
+        to { transform: scale(1.2) translate(10%, 10%); }
+    }
+
+    .question-box {
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(15px);
+        padding: 40px;
+        border-radius: 30px;
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        border-left: 12px solid #1e5631;
+        box-shadow: 0 25px 50px rgba(0,0,0,0.15);
+        margin-bottom: 30px;
+        color: #1e5631;
+    }
+
+    .podium-card {
+        padding: 20px; border-radius: 15px; margin: 10px 0;
+        text-align: center; font-weight: 900; font-size: 22px;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    .gold { background: linear-gradient(90deg, #FFD700, #FFFACD); color: #8B4513; border: 3px solid #DAA520; }
+    .silver { background: linear-gradient(90deg, #C0C0C0, #F5F5F5); color: #4F4F4F; border: 3px solid #A9A9A9; }
+    .bronze { background: linear-gradient(90deg, #CD7F32, #FAEBD7); color: #5D2906; border: 3px solid #8B4513; }
+    .standard { background: white; color: #1e5631; border: 1px solid #ddd; font-size: 18px; font-weight: bold; }
+
+    .stButton>button { 
+        width: 100%; border-radius: 20px; height: 4.5em; 
+        font-size: 18px; font-weight: 800; 
+        background: white; color: #1e5631; border: 2px solid #1e5631; 
+        transition: all 0.3s ease;
+    }
+    .stButton>button:hover { background-color: #1e5631 !important; color: white !important; transform: scale(1.02); }
+
+    @keyframes spreadFloat {
+        0% { transform: translateY(110vh) rotate(0deg); opacity: 0; }
+        10% { opacity: 1; }
+        100% { transform: translateY(-20vh) rotate(20deg); opacity: 0; }
+    }
+    .balloon { position: fixed; font-size: 50px; animation: spreadFloat 10s linear infinite; z-index: 99999 !important; pointer-events: none; }
+    </style>
+    """, unsafe_allow_html=True)
+
 # --- SESSION STATE ---
 if 'page' not in st.session_state: st.session_state.page = 'welcome'
 if 'leaderboard' not in st.session_state: st.session_state.leaderboard = []
 if 'muted' not in st.session_state: st.session_state.muted = False
-# New states for Multiplayer
 if 'game_mode' not in st.session_state: st.session_state.game_mode = 'single'
 if 'multi_players' not in st.session_state: st.session_state.multi_players = []
 if 'current_player_idx' not in st.session_state: st.session_state.current_player_idx = 0
 
-# ... (keep your existing play_audio and high_speed_timer functions) ...
+def play_audio(file_path, loop=True):
+    if not st.session_state.muted and os.path.exists(file_path):
+        with open(file_path, "rb") as f:
+            st.audio(f.read(), format="audio/mp3", loop=loop, autoplay=True)
+
+@st.fragment(run_every=1)
+def high_speed_timer():
+    if st.session_state.page == 'quiz' and 'start_time' in st.session_state:
+        elapsed = time.time() - st.session_state.start_time
+        remaining = int(st.session_state.time_limit - elapsed)
+        if remaining <= 0:
+            if (st.session_state.p_name, st.session_state.score) not in st.session_state.leaderboard:
+                st.session_state.leaderboard.append((st.session_state.p_name, st.session_state.score))
+            st.session_state.page = 'summary'
+            st.rerun()
+        st.markdown(f"<div style='text-align:right; font-weight:900; color:white; font-size:24px; text-shadow: 1px 1px 5px black;'>⏱️ {remaining}s</div>", unsafe_allow_html=True)
 
 # --- APP PAGES ---
 
@@ -23,14 +115,12 @@ if st.session_state.page == 'welcome':
 elif st.session_state.page == 'mode_selection':
     st.markdown("<h2 style='text-align: center; color: white;'>Choose Your Mode</h2>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
-    
     with col1:
         st.markdown("<div style='text-align:center; font-size:60px;'>👤</div>", unsafe_allow_html=True)
         if st.button("SINGLE PLAYER"):
             st.session_state.game_mode = 'single'
             st.session_state.page = 'register'
             st.rerun()
-            
     with col2:
         st.markdown("<div style='text-align:center; font-size:60px;'>👥</div>", unsafe_allow_html=True)
         if st.button("MULTIPLAYER"):
@@ -39,41 +129,40 @@ elif st.session_state.page == 'mode_selection':
             st.rerun()
 
 elif st.session_state.page == 'register':
-    st.markdown(f"<h2 style='text-align: center; color: white;'>{'Multiplayer' if st.session_state.game_mode == 'multi' else 'Single Player'} Entry</h2>", unsafe_allow_html=True)
+    st.markdown(f"<h2 style='text-align: center; color: white;'>{'Multiplayer' if st.session_state.game_mode == 'multi' else 'Player'} Entry</h2>", unsafe_allow_html=True)
     
+    player_names = []
     if st.session_state.game_mode == 'single':
         name = st.text_input("Player Name")
-        names = [name] if name else []
+        if name: player_names.append(name)
     else:
         num_players = st.number_input("Number of Players (2-50)", min_value=2, max_value=50, value=2)
-        names = []
         cols = st.columns(2)
         for i in range(num_players):
             with cols[i % 2]:
                 n = st.text_input(f"Player {i+1} Name", key=f"pname_{i}")
-                if n: names.append(n)
+                if n: player_names.append(n)
 
     limit = st.selectbox("Time Limit (Seconds)", [30, 60, 120, 300], index=1)
-    
     col1, col2 = st.columns(2)
+    
     if col1.button("START QUIZ"):
-        if len(names) > 0:
+        if player_names:
             all_qs = json.load(open('questions.json')) if os.path.exists('questions.json') else []
             st.session_state.update({
-                'multi_players': names,
+                'multi_players': player_names,
                 'current_player_idx': 0,
                 'time_limit': limit,
                 'questions_data': all_qs,
-                'page': 'quiz_init' # Helper state to set up each player
+                'page': 'quiz_init'
             })
             st.rerun()
     if col2.button("BACK"): st.session_state.page = 'mode_selection'; st.rerun()
 
-# --- Helper logic to reset session for the next player in the list ---
 elif st.session_state.page == 'quiz_init':
+    # Initialize session for specific player in queue
     idx = st.session_state.current_player_idx
     current_name = st.session_state.multi_players[idx]
-    
     shuffled_indices = list(range(len(st.session_state.questions_data)))
     random.shuffle(shuffled_indices)
     
@@ -88,23 +177,49 @@ elif st.session_state.page == 'quiz_init':
     })
     st.rerun()
 
-# ... (Keep your existing 'quiz' page logic exactly as is) ...
+elif st.session_state.page == 'quiz':
+    play_audio("background_music.mp3")
+    high_speed_timer()
+    
+    if 'questions_data' in st.session_state and st.session_state.current_step < len(st.session_state.shuffled_indices):
+        step = st.session_state.current_step
+        q_idx = st.session_state.shuffled_indices[step]
+        q = st.session_state.questions_data[q_idx]
+        
+        with st.container():
+            st.markdown(f"""<div class="question-box">
+                <p style="opacity:0.6; font-size:14px; margin:0;">PLAYER: {st.session_state.p_name.upper()} | QUESTION {step+1} OF {len(st.session_state.shuffled_indices)}</p>
+                <h2 style="margin-top:10px;">{q['question']}</h2>
+            </div>""", unsafe_allow_html=True)
+            
+            for opt in q['options']:
+                if st.button(opt, key=f"q{step}_{opt}"):
+                    if opt == q['answer']: 
+                        st.session_state.score += 1
+                    else: 
+                        st.session_state.wrong_answers.append({'question': q['question'], 'correct': q['answer'], 'yours': opt})
+                    st.session_state.current_step += 1
+                    st.rerun()
+    else:
+        if (st.session_state.p_name, st.session_state.score) not in st.session_state.leaderboard:
+            st.session_state.leaderboard.append((st.session_state.p_name, st.session_state.score))
+        st.session_state.page = 'summary'
+        st.rerun()
 
 elif st.session_state.page == 'summary':
-    # Add score to leaderboard immediately
-    if (st.session_state.p_name, st.session_state.score) not in st.session_state.leaderboard:
-        st.session_state.leaderboard.append((st.session_state.p_name, st.session_state.score))
-        
     st.markdown(f"<h1 style='text-align: center; color: white;'>Round Over, {st.session_state.p_name}!</h1>", unsafe_allow_html=True)
     st.markdown(f"<div class='question-box' style='text-align:center;'><h2>Final Score: {st.session_state.score}</h2></div>", unsafe_allow_html=True)
+    if st.session_state.wrong_answers:
+        with st.expander("🔍 Review Mistakes"):
+            for item in st.session_state.wrong_answers:
+                st.markdown(f"<div style='background:white; color:black; padding:10px; border-radius:10px; margin-bottom:5px;'><b>Q: {item['question']}</b><br><span style='color:red;'>Your: {item['yours']}</span> | <span style='color:green;'>Correct: {item['correct']}</span></div>", unsafe_allow_html=True)
     
-    # Check if there are more players in multiplayer
+    # Check if more players remain in multiplayer mode
     has_next = st.session_state.game_mode == 'multi' and (st.session_state.current_player_idx + 1 < len(st.session_state.multi_players))
     
     cA, cB, cC = st.columns(3)
-    
     if has_next:
-        if cA.button("NEXT PLAYER'S TURN"):
+        if cA.button("NEXT PLAYER"): 
             st.session_state.current_player_idx += 1
             st.session_state.page = 'quiz_init'
             st.rerun()
@@ -114,4 +229,23 @@ elif st.session_state.page == 'summary':
     if cB.button("LEADERBOARD"): st.session_state.page = 'final'; st.rerun()
     if cC.button("QUIT"): st.session_state.clear(); st.session_state.page = 'welcome'; st.rerun()
 
-# ... (Keep your existing 'final' page logic exactly as is) ...
+elif st.session_state.page == 'final':
+    play_audio("winner_sound.mp3.mp3", loop=False)
+    balloon_list = ["🎈", "🎊", "✨", "⭐"]
+    balloons_html = "".join([f'<div class="balloon" style="left:{random.randint(0,95)}%; bottom:{random.randint(-20, 50)}vh; animation-delay:{random.uniform(0,8)}s;">{random.choice(balloon_list)}</div>' for _ in range(40)])
+    st.markdown(balloons_html, unsafe_allow_html=True)
+    
+    st.markdown("<h1 style='text-align: center; color: white;'>🏆 LEADERSHIP BOARD 🏆</h1>", unsafe_allow_html=True)
+    
+    scores = sorted(st.session_state.leaderboard, key=lambda x: x[1], reverse=True)
+    for i, (n, s) in enumerate(scores):
+        if i == 0: style = "gold"
+        elif i == 1: style = "silver"
+        elif i == 2: style = "bronze"
+        else: style = "standard"
+        st.markdown(f"<div class='podium-card {style}'>{i+1}. {n.upper()} — {s} PTS</div>", unsafe_allow_html=True)
+        
+    c1, c2, c3 = st.columns(3)
+    if c1.button("NEW GAME"): st.session_state.page = 'mode_selection'; st.rerun()
+    if c2.button("RESET ALL"): st.session_state.clear(); st.rerun()
+    if c3.button("QUIT"): st.session_state.clear(); st.session_state.page = 'welcome'; st.rerun()
