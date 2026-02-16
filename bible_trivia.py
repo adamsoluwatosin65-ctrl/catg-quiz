@@ -4,37 +4,43 @@ import json, time, os, random
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="CATG Quiz", layout="centered")
 
-# --- CUSTOM THEME & SHARP DESIGN ---
+# --- ADVANCED DESIGN & BACKGROUND DECORATION ---
 st.markdown("""
     <style>
-    /* Overall Background */
-    .stApp { background-color: #f8f9fa; }
-
-    /* Question Card Design */
-    .question-box {
-        background-color: #ffffff;
-        padding: 30px;
-        border-radius: 20px;
-        border-left: 8px solid #1e5631;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.05);
-        margin-bottom: 25px;
-        text-align: left;
+    /* Gradient Background for the entire App */
+    .stApp {
+        background: linear-gradient(135deg, #f0f4f1 0%, #d9e8dd 100%);
+        background-attachment: fixed;
     }
 
-    /* Sharp Answer Buttons */
+    /* Decorated Question Card (Glassmorphism) */
+    .question-box {
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(10px);
+        padding: 40px;
+        border-radius: 25px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-left: 10px solid #1e5631;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+        margin-bottom: 30px;
+    }
+
+    /* Styled Answer Buttons */
     .stButton>button { 
-        width: 100%; border-radius: 12px; height: 3.8em; 
-        font-size: 18px; font-weight: 600; 
-        background-color: #ffffff; color: #1e5631; 
-        border: 2px solid #1e5631; transition: all 0.2s ease-in-out;
+        width: 100%; border-radius: 15px; height: 4em; 
+        font-size: 18px; font-weight: 700; 
+        background-color: white; color: #1e5631; 
+        border: 2px solid #1e5631; 
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
     }
     .stButton>button:hover { 
         background-color: #1e5631 !important; color: white !important;
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(30,86,49,0.3);
+        transform: translateY(-3px);
+        box-shadow: 0 8px 15px rgba(30,86,49,0.2);
     }
 
-    /* Leaderboard Styling */
+    /* Leaderboard Design */
     .rank-card { 
         padding: 20px; border-radius: 15px; margin: 10px 0; 
         text-align: center; font-size: 22px; font-weight: bold;
@@ -44,16 +50,16 @@ st.markdown("""
     .silver { background: linear-gradient(90deg, #C0C0C0, #F5F5F5); color: #4F4F4F; border: 3px solid #A9A9A9; }
     .bronze { background: linear-gradient(90deg, #CD7F32, #FAEBD7); color: #5D2906; border: 3px solid #8B4513; }
 
-    /* Ultra-Visible Balloons */
-    @keyframes floatUp {
-        0% { transform: translateY(110vh); opacity: 0; }
+    /* Floating Balloons Animation */
+    @keyframes spreadFloat {
+        0% { transform: translateY(110vh) translateX(0) rotate(0deg); opacity: 0; }
         10% { opacity: 1; }
-        90% { opacity: 1; }
-        100% { transform: translateY(-20vh); opacity: 0; }
+        50% { transform: translateY(50vh) translateX(60px) rotate(20deg); }
+        100% { transform: translateY(-20vh) translateX(-30px) rotate(-20deg); opacity: 0; }
     }
     .balloon {
-        position: fixed; bottom: -20%; font-size: 60px;
-        animation: floatUp 8s linear infinite;
+        position: fixed; font-size: 55px;
+        animation: spreadFloat 12s linear infinite;
         z-index: 99999 !important; pointer-events: none;
         text-shadow: 0 0 15px rgba(255,255,255,0.9);
     }
@@ -73,7 +79,7 @@ def play_audio(file_path, loop=True):
         with open(file_path, "rb") as f:
             st.audio(f.read(), format="audio/mp3", loop=loop, autoplay=True)
 
-# --- TIMER FRAGMENT (PREVENTS GLOBAL LAG) ---
+# --- TIMER FRAGMENT ---
 @st.fragment(run_every=1)
 def high_speed_timer():
     if st.session_state.page == 'quiz' and 'start_time' in st.session_state:
@@ -83,7 +89,6 @@ def high_speed_timer():
             st.session_state.leaderboard.append((st.session_state.p_name, st.session_state.score))
             st.session_state.page = 'summary'
             st.rerun()
-        # Clean, sharp timer display
         st.markdown(f"<div style='text-align:right; font-weight:bold; color:#cc0000; font-size:20px;'>⏱️ {remaining}s</div>", unsafe_allow_html=True)
 
 # --- PAGE ROUTING ---
@@ -101,7 +106,7 @@ if st.session_state.page == 'welcome':
 elif st.session_state.page == 'register':
     st.markdown("<h2 style='text-align: center; color: #1e5631;'>Player Entry</h2>", unsafe_allow_html=True)
     name = st.text_input("Player Name")
-    limit = st.selectbox("Select Time Limit (Seconds)", [30, 60, 120, 300], index=1)
+    limit = st.selectbox("Time Limit (Seconds)", [30, 60, 120, 300], index=1)
     if st.button("START QUIZ"):
         if name:
             all_qs = json.load(open('questions.json')) if os.path.exists('questions.json') else []
@@ -123,16 +128,14 @@ elif st.session_state.page == 'quiz':
     
     if step < len(st.session_state.shuffled_indices):
         q = all_qs[st.session_state.shuffled_indices[step]]
-        
-        # --- SHARP QUESTION DESIGN ---
+        # Decorated Question UI
         st.markdown(f"""
             <div class="question-box">
-                <p style="color: #666; font-size: 14px; margin-bottom: 5px;">QUESTION {step + 1}</p>
-                <h2 style="color: #1e5631; margin-top: 0;">{q['question']}</h2>
+                <p style="color: #1e5631; font-weight: bold; opacity: 0.6; margin-bottom: 5px;">QUESTION {step+1}</p>
+                <h2 style="color: #1e5631; margin-top: 0; font-size: 28px;">{q['question']}</h2>
             </div>
         """, unsafe_allow_html=True)
         
-        # Answer Buttons
         for opt in q['options']:
             if st.button(opt, key=f"q{step}_{opt}"):
                 if opt == q['answer']: st.session_state.score += 1
@@ -145,7 +148,7 @@ elif st.session_state.page == 'quiz':
 
 elif st.session_state.page == 'summary':
     st.markdown(f"<h1 style='text-align: center;'>Round Over, {st.session_state.p_name}!</h1>", unsafe_allow_html=True)
-    st.markdown(f"<h2 style='text-align: center;'>Score: {st.session_state.score}</h2>", unsafe_allow_html=True)
+    st.markdown(f"<div class='question-box' style='text-align:center;'><h2>Your Score: {st.session_state.score}</h2></div>", unsafe_allow_html=True)
     
     colA, colB, colC = st.columns(3)
     if colA.button("NEXT PLAYER"):
@@ -162,8 +165,12 @@ elif st.session_state.page == 'summary':
 elif st.session_state.page == 'final':
     play_audio("winner_sound.mp3.mp3", loop=False)
     
-    # Balloons
-    balloons_html = "".join([f'<div class="balloon" style="left:{random.randint(5,90)}%; animation-delay:{random.uniform(0,6)}s;">🎈</div>' for _ in range(30)])
+    # Random Full-Screen Spread Balloons
+    balloon_list = ["🎈", "🎊", "✨", "⭐", "🎈"]
+    balloons_html = "".join([
+        f'<div class="balloon" style="left:{random.randint(0,95)}%; bottom:{random.randint(-20, 50)}vh; animation-delay:{random.uniform(0,8)}s;">{random.choice(balloon_list)}</div>' 
+        for _ in range(40) 
+    ])
     st.markdown(balloons_html, unsafe_allow_html=True)
     
     st.markdown("<h1 style='text-align: center; color: #1e5631;'>🏆 TOURNAMENT STANDINGS 🏆</h1>", unsafe_allow_html=True)
