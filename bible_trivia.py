@@ -7,6 +7,11 @@ st.set_page_config(page_title="CATG Quiz", layout="centered")
 # --- ADVANCED DESIGN & BACKGROUND DECORATION ---
 st.markdown("""
     <style>
+    /* HIDE THE AUDIO PLAYER WIDGET */
+    audio {
+        display: none;
+    }
+
     /* Gradient Background for the entire App */
     .stApp {
         background: linear-gradient(135deg, #f0f4f1 0%, #d9e8dd 100%);
@@ -77,6 +82,7 @@ if 'muted' not in st.session_state:
 def play_audio(file_path, loop=True):
     if not st.session_state.muted and os.path.exists(file_path):
         with open(file_path, "rb") as f:
+            # We keep the audio code, but the CSS above will hide the player
             st.audio(f.read(), format="audio/mp3", loop=loop, autoplay=True)
 
 # --- TIMER FRAGMENT ---
@@ -128,7 +134,6 @@ elif st.session_state.page == 'quiz':
     
     if step < len(st.session_state.shuffled_indices):
         q = all_qs[st.session_state.shuffled_indices[step]]
-        # Decorated Question UI
         st.markdown(f"""
             <div class="question-box">
                 <p style="color: #1e5631; font-weight: bold; opacity: 0.6; margin-bottom: 5px;">QUESTION {step+1}</p>
@@ -165,7 +170,6 @@ elif st.session_state.page == 'summary':
 elif st.session_state.page == 'final':
     play_audio("winner_sound.mp3.mp3", loop=False)
     
-    # Random Full-Screen Spread Balloons
     balloon_list = ["🎈", "🎊", "✨", "⭐", "🎈"]
     balloons_html = "".join([
         f'<div class="balloon" style="left:{random.randint(0,95)}%; bottom:{random.randint(-20, 50)}vh; animation-delay:{random.uniform(0,8)}s;">{random.choice(balloon_list)}</div>' 
