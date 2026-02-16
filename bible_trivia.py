@@ -4,58 +4,41 @@ import json, time, os, random
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="CATG Quiz", layout="centered")
 
-# --- ADVANCED DESIGN & BACKGROUND DECORATION ---
+# --- ADVANCED DESIGN ---
 st.markdown("""
     <style>
-    /* HIDE THE AUDIO PLAYER WIDGET */
-    audio {
-        display: none;
-    }
-
-    /* Gradient Background for the entire App */
-    .stApp {
-        background: linear-gradient(135deg, #f0f4f1 0%, #d9e8dd 100%);
-        background-attachment: fixed;
-    }
-
-    /* Decorated Question Card (Glassmorphism) */
+    audio { display: none; }
+    .stApp { background: linear-gradient(135deg, #f0f4f1 0%, #d9e8dd 100%); background-attachment: fixed; }
+    
     .question-box {
-        background: rgba(255, 255, 255, 0.9);
-        backdrop-filter: blur(10px);
-        padding: 40px;
-        border-radius: 25px;
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        border-left: 10px solid #1e5631;
-        box-shadow: 0 15px 35px rgba(0,0,0,0.1);
-        margin-bottom: 30px;
+        background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px);
+        padding: 40px; border-radius: 25px; border-left: 10px solid #1e5631;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.1); margin-bottom: 30px;
     }
 
-    /* Styled Answer Buttons */
+    .review-box {
+        background: rgba(255, 255, 255, 0.7); padding: 15px;
+        border-radius: 15px; border: 1px solid #cc0000; margin-top: 10px;
+    }
+
     .stButton>button { 
         width: 100%; border-radius: 15px; height: 4em; 
-        font-size: 18px; font-weight: 700; 
-        background-color: white; color: #1e5631; 
-        border: 2px solid #1e5631; 
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        font-size: 18px; font-weight: 700; background-color: white; color: #1e5631; 
+        border: 2px solid #1e5631; transition: all 0.3s ease;
     }
     .stButton>button:hover { 
         background-color: #1e5631 !important; color: white !important;
         transform: translateY(-3px);
-        box-shadow: 0 8px 15px rgba(30,86,49,0.2);
     }
 
-    /* Leaderboard Design */
     .rank-card { 
         padding: 20px; border-radius: 15px; margin: 10px 0; 
-        text-align: center; font-size: 22px; font-weight: bold;
-        position: relative; z-index: 5;
+        text-align: center; font-size: 22px; font-weight: bold; position: relative; z-index: 5;
     }
     .gold { background: linear-gradient(90deg, #FFD700, #FFFACD); color: #8B4513; border: 3px solid #DAA520; }
     .silver { background: linear-gradient(90deg, #C0C0C0, #F5F5F5); color: #4F4F4F; border: 3px solid #A9A9A9; }
     .bronze { background: linear-gradient(90deg, #CD7F32, #FAEBD7); color: #5D2906; border: 3px solid #8B4513; }
 
-    /* Floating Balloons Animation */
     @keyframes spreadFloat {
         0% { transform: translateY(110vh) translateX(0) rotate(0deg); opacity: 0; }
         10% { opacity: 1; }
@@ -63,10 +46,8 @@ st.markdown("""
         100% { transform: translateY(-20vh) translateX(-30px) rotate(-20deg); opacity: 0; }
     }
     .balloon {
-        position: fixed; font-size: 55px;
-        animation: spreadFloat 12s linear infinite;
-        z-index: 99999 !important; pointer-events: none;
-        text-shadow: 0 0 15px rgba(255,255,255,0.9);
+        position: fixed; font-size: 55px; animation: spreadFloat 12s linear infinite;
+        z-index: 99999 !important; pointer-events: none; text-shadow: 0 0 15px rgba(255,255,255,0.9);
     }
     </style>
     """, unsafe_allow_html=True)
@@ -78,11 +59,12 @@ if 'leaderboard' not in st.session_state:
     st.session_state.leaderboard = []
 if 'muted' not in st.session_state:
     st.session_state.muted = False
+if 'wrong_answers' not in st.session_state:
+    st.session_state.wrong_answers = []
 
 def play_audio(file_path, loop=True):
     if not st.session_state.muted and os.path.exists(file_path):
         with open(file_path, "rb") as f:
-            # We keep the audio code, but the CSS above will hide the player
             st.audio(f.read(), format="audio/mp3", loop=loop, autoplay=True)
 
 # --- TIMER FRAGMENT ---
@@ -112,7 +94,7 @@ if st.session_state.page == 'welcome':
 elif st.session_state.page == 'register':
     st.markdown("<h2 style='text-align: center; color: #1e5631;'>Player Entry</h2>", unsafe_allow_html=True)
     name = st.text_input("Player Name")
-    limit = st.selectbox("Time Limit (Seconds)", [30, 60, 120, 300], index=1)
+    limit = st.selectbox("Select Time Limit (Seconds)", [30, 60, 120, 300], index=1)
     if st.button("START QUIZ"):
         if name:
             all_qs = json.load(open('questions.json')) if os.path.exists('questions.json') else []
@@ -121,7 +103,8 @@ elif st.session_state.page == 'register':
             st.session_state.update({
                 'page': 'quiz', 'p_name': name, 'time_limit': limit,
                 'start_time': time.time(), 'score': 0, 
-                'shuffled_indices': indices, 'current_step': 0
+                'shuffled_indices': indices, 'current_step': 0,
+                'wrong_answers': [] # Reset mistakes for new player
             })
             st.rerun()
 
@@ -134,16 +117,20 @@ elif st.session_state.page == 'quiz':
     
     if step < len(st.session_state.shuffled_indices):
         q = all_qs[st.session_state.shuffled_indices[step]]
-        st.markdown(f"""
-            <div class="question-box">
-                <p style="color: #1e5631; font-weight: bold; opacity: 0.6; margin-bottom: 5px;">QUESTION {step+1}</p>
-                <h2 style="color: #1e5631; margin-top: 0; font-size: 28px;">{q['question']}</h2>
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"""<div class="question-box"><p style="color: #1e5631; font-weight: bold; opacity: 0.6; margin-bottom: 5px;">QUESTION {step+1}</p>
+        <h2 style="color: #1e5631; margin-top: 0; font-size: 28px;">{q['question']}</h2></div>""", unsafe_allow_html=True)
         
         for opt in q['options']:
             if st.button(opt, key=f"q{step}_{opt}"):
-                if opt == q['answer']: st.session_state.score += 1
+                if opt == q['answer']: 
+                    st.session_state.score += 1
+                else:
+                    # Record mistake
+                    st.session_state.wrong_answers.append({
+                        'question': q['question'],
+                        'correct': q['answer'],
+                        'yours': opt
+                    })
                 st.session_state.current_step += 1
                 st.rerun()
     else:
@@ -155,6 +142,20 @@ elif st.session_state.page == 'summary':
     st.markdown(f"<h1 style='text-align: center;'>Round Over, {st.session_state.p_name}!</h1>", unsafe_allow_html=True)
     st.markdown(f"<div class='question-box' style='text-align:center;'><h2>Your Score: {st.session_state.score}</h2></div>", unsafe_allow_html=True)
     
+    # --- MISTAKE REVIEW SECTION ---
+    if st.session_state.wrong_answers:
+        with st.expander("🔍 Review Failed Questions"):
+            for item in st.session_state.wrong_answers:
+                st.markdown(f"""
+                <div class="review-box">
+                    <p><b>Q:</b> {item['question']}</p>
+                    <p style="color: red;"><b>Your Answer:</b> {item['yours']}</p>
+                    <p style="color: green;"><b>Correct Answer:</b> {item['correct']}</p>
+                </div>
+                """, unsafe_allow_html=True)
+    else:
+        st.success("Perfect Round! No mistakes to review. 🌟")
+
     colA, colB, colC = st.columns(3)
     if colA.button("NEXT PLAYER"):
         st.session_state.page = 'register'
