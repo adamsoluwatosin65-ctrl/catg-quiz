@@ -9,6 +9,7 @@ st.markdown("""
     <style>
     .stButton>button { width: 100%; border-radius: 10px; height: 3em; font-weight: bold; background-color: #1e5631; color: white; }
     .main-text { color: #1e5631; text-align: center; }
+    .logo-container { display: flex; justify-content: center; margin-bottom: 20px; }
     .timer-container { background-color: #f0f2f6; padding: 10px; border-radius: 10px; border: 1px solid #1e5631; }
     .timer-text { font-size: 20px; font-weight: bold; color: #cc0000; text-align: center; }
     </style>
@@ -16,8 +17,10 @@ st.markdown("""
 
 # --- SESSION STATE INITIALIZATION ---
 if 'page' not in st.session_state:
+    st.session_state.page = 'welcome'
+
+if 'leaderboard' not in st.session_state:
     st.session_state.update({
-        'page': 'welcome', 
         'leaderboard': [], 
         'used_q_indices': [], 
         'score': 0, 
@@ -36,7 +39,7 @@ def play_audio(file_path, loop=True):
         with open(file_path, "rb") as f:
             st.audio(f.read(), format="audio/mp3", loop=loop, autoplay=True)
 
-# --- TIMER FRAGMENT (Prevents site-wide lag) ---
+# --- TIMER FRAGMENT ---
 @st.fragment(run_every=1)
 def show_timer():
     if st.session_state.page == 'quiz' and st.session_state.start_time:
@@ -44,16 +47,11 @@ def show_timer():
         remaining = int(st.session_state.time_limit - elapsed)
         
         if remaining <= 0:
-            st.session_state.page = 'summary'
-            # Record score to leaderboard
             st.session_state.leaderboard.append((st.session_state.p_name, st.session_state.score))
+            st.session_state.page = 'summary'
             st.rerun()
             
-        st.markdown(f"""
-            <div class='timer-container'>
-                <div class='timer-text'>⏱️ {remaining}s Left | Score: {st.session_state.score}</div>
-            </div>
-            """, unsafe_allow_html=True)
+        st.markdown(f"<div class='timer-container'><div class='timer-text'>⏱️ {remaining}s Left | Score: {st.session_state.score}</div></div>", unsafe_allow_html=True)
 
 # --- SIDEBAR ---
 with st.sidebar:
@@ -66,10 +64,18 @@ with st.sidebar:
 
 # 1. WELCOME PAGE
 if st.session_state.page == 'welcome':
-    # st.image("logo.png", width=200) # Uncomment this and add your logo path
-    st.title("CATG Quiz")
-    st.markdown("<h1 class='main-text'>Ready to Start?</h1>", unsafe_allow_html=True)
-    if st.button("CONTINUE"):
+    st.markdown("<div class='logo-container'>", unsafe_allow_html=True)
+    # REPLACE 'logo.png' WITH YOUR ACTUAL FILENAME
+    if os.path.exists('logo.png'):
+        st.image('logo.png', width=300)
+    else:
+        st.warning("Logo file ('logo.png') not found in directory.")
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    st.markdown("<h1 class='main-text'>Welcome to CATG Quiz</h1>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center;'>Test your knowledge and climb the leaderboard!</h3>", unsafe_allow_html=True)
+    
+    if st.button("GET STARTED"):
         st.session_state.page = 'register'
         st.rerun()
 
@@ -92,13 +98,10 @@ elif st.session_state.page == 'register':
 
 # 3. QUIZ PAGE
 elif st.session_state.page == 'quiz':
-    # Background music starts after user interaction (clicking 'Start Quiz')
     play_audio("background_music.mp3") 
-    
-    show_timer() # Runs independently via @st.fragment
+    show_timer()
     
     all_qs = load_data()
-    # Find next question not in used list
     current_q_idx = len(st.session_state.used_q_indices)
     
     if current_q_idx >= len(all_qs):
@@ -107,12 +110,11 @@ elif st.session_state.page == 'quiz':
         st.rerun()
     else:
         q = all_qs[current_q_idx]
-        st.subheader(f"Question {current_q_idx + 1}")
-        st.write(f"### {q['question']}")
+        st.write(f"### Question {current_q_idx + 1}")
+        st.markdown(f"#### {q['question']}")
         
-        # Unique keys (btn_idx_option) prevent button state from "sticking"
         for opt in q['options']:
-            if st.button(opt, key=f"q{current_q_idx}_{opt}"):
+            if st.button(opt, key=f"btn_{current_q_idx}_{opt}"):
                 if opt == q['answer']:
                     st.session_state.score += 1
                 st.session_state.used_q_indices.append(current_q_idx)
@@ -120,19 +122,21 @@ elif st.session_state.page == 'quiz':
 
 # 4. SUMMARY PAGE
 elif st.session_state.page == 'summary':
-    st.markdown("<h2 class='main-text'>Round Results</h2>", unsafe_allow_html=True)
-    st.success(f"Final Score for {st.session_state.p_name}: {st.session_state.score}")
+    st.markdown("<h2 class='main-text'>Round Finished!</h2>", unsafe_allow_html=True)
+    st.balloons()
+    st.success(f"Great job, {st.session_state.p_name}! Your final score: {st.session_state.score}")
     
-    if st.button("NEXT PLAYER"): 
+    col1, col2 = st.columns(2)
+    if col1.button("NEXT PLAYER"): 
         st.session_state.page = 'register'
         st.rerun()
-    if st.button("FINAL RANKINGS"): 
+    if col2.button("FINAL RANKINGS"): 
         st.session_state.page = 'final'
         st.rerun()
 
 # 5. LEADERBOARD PAGE
 elif st.session_state.page == 'final':
-    play_audio("winner_sound.mp3.mp3", loop=False) # Plays once
+    play_audio("winner_sound.mp3.mp3", loop=False)
     st.markdown("<h1 class='main-text'>🏆 Leaderboard 🏆</h1>", unsafe_allow_html=True)
     
     lb = sorted(st.session_state.leaderboard, key=lambda x: x[1], reverse=True)
