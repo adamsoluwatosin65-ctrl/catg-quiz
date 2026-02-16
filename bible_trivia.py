@@ -7,11 +7,15 @@ st.set_page_config(page_title="CATG Quiz", layout="centered")
 # --- ADVANCED CSS ---
 st.markdown("""
     <style>
+    /* Button Styling */
     .stButton>button { 
         width: 100%; border-radius: 12px; height: 3.5em; 
         font-size: 18px; font-weight: bold; 
         background-color: #1e5631; color: white; border: none;
+        position: relative; z-index: 10; /* Keep buttons below balloons but clickable */
     }
+
+    /* Leaderboard Cards */
     .rank-card { 
         padding: 20px; border-radius: 15px; margin: 10px 0; 
         text-align: center; font-size: 22px; font-weight: bold;
@@ -21,14 +25,22 @@ st.markdown("""
     .silver { background: linear-gradient(90deg, #C0C0C0, #F5F5F5); color: #4F4F4F; border: 3px solid #A9A9A9; }
     .bronze { background: linear-gradient(90deg, #CD7F32, #FAEBD7); color: #5D2906; border: 3px solid #8B4513; }
 
+    /* SUPER VISIBLE BALLOON ANIMATION */
     @keyframes floatUp {
-        0% { transform: translateY(110vh); opacity: 1; }
-        100% { transform: translateY(-20vh); opacity: 0; }
+        0% { transform: translateY(110vh) scale(1); opacity: 0; }
+        10% { opacity: 1; }
+        90% { opacity: 1; }
+        100% { transform: translateY(-20vh) scale(1.2); opacity: 0; }
     }
+    
     .balloon {
-        position: fixed; bottom: -15%; font-size: 50px;
-        animation: floatUp 7s linear infinite;
-        z-index: 9999 !important; pointer-events: none;
+        position: fixed; 
+        bottom: -20%; 
+        font-size: 60px; /* Bigger balloons */
+        animation: floatUp 8s linear infinite;
+        z-index: 99999 !important; /* Force to absolute top layer */
+        pointer-events: none; /* Allows you to click buttons 'through' the balloons */
+        text-shadow: 0 0 20px rgba(255,255,255,0.8); /* Glow effect for visibility */
     }
     </style>
     """, unsafe_allow_html=True)
@@ -60,6 +72,7 @@ def sync_timer():
 
 # --- PAGE ROUTING ---
 
+# 1. WELCOME
 if st.session_state.page == 'welcome':
     c1, c2, c3 = st.columns([1, 4, 1])
     with c2:
@@ -71,6 +84,7 @@ if st.session_state.page == 'welcome':
         st.session_state.page = 'register'
         st.rerun()
 
+# 2. REGISTER
 elif st.session_state.page == 'register':
     st.markdown("<h2 style='text-align: center;'>Player Entry</h2>", unsafe_allow_html=True)
     name = st.text_input("Player Name")
@@ -87,9 +101,10 @@ elif st.session_state.page == 'register':
             })
             st.rerun()
 
+# 3. QUIZ
 elif st.session_state.page == 'quiz':
     play_audio("background_music.mp3")
-    sync_timer() # Updates every second without lagging the whole app
+    sync_timer()
     
     all_qs = json.load(open('questions.json'))
     step = st.session_state.current_step
@@ -106,36 +121,47 @@ elif st.session_state.page == 'quiz':
         st.session_state.page = 'summary'
         st.rerun()
 
+# 4. SUMMARY (After player round)
 elif st.session_state.page == 'summary':
     st.markdown(f"<h1 style='text-align: center;'>Round Over, {st.session_state.p_name}!</h1>", unsafe_allow_html=True)
     st.markdown(f"<h2 style='text-align: center;'>Score: {st.session_state.score}</h2>", unsafe_allow_html=True)
     
-    if st.button("NEXT PLAYER"):
+    colA, colB, colC = st.columns(3)
+    if colA.button("NEXT PLAYER"):
         st.session_state.page = 'register'
         st.rerun()
-    if st.button("PROCEED TO LEADERSHIP BOARD"):
+    if colB.button("LEADERBOARD"):
         st.session_state.page = 'final'
         st.rerun()
-    if st.button("QUIT GAME"):
+    if colC.button("QUIT"):
         st.session_state.clear()
         st.session_state.page = 'welcome'
         st.rerun()
 
+# 5. FINAL LEADERBOARD
 elif st.session_state.page == 'final':
     play_audio("winner_sound.mp3.mp3", loop=False)
-    # Balloons
-    balloons_html = "".join([f'<div class="balloon" style="left:{random.randint(5,90)}%; animation-delay:{random.uniform(0,5)}s;">🎈</div>' for _ in range(25)])
+    
+    # --- ULTRA VISIBLE BALLOONS ---
+    balloon_list = ["🎈", "🎈", "🎈", "🎈", "✨", "⭐", "🎊"]
+    balloons_html = "".join([
+        f'<div class="balloon" style="left:{random.randint(2,92)}%; animation-delay:{random.uniform(0,6)}s;">{random.choice(balloon_list)}</div>' 
+        for _ in range(30) # Increased density
+    ])
     st.markdown(balloons_html, unsafe_allow_html=True)
     
     st.markdown("<h1 style='text-align: center; color: #1e5631;'>🏆 TOURNAMENT STANDINGS 🏆</h1>", unsafe_allow_html=True)
+    
     scores = sorted(st.session_state.leaderboard, key=lambda x: x[1], reverse=True)
     for i, (n, s) in enumerate(scores):
         rank = "gold" if i == 0 else "silver" if i == 1 else "bronze" if i == 2 else ""
         st.markdown(f"<div class='rank-card {rank}'>{i+1}. {n.upper()} — {s} PTS</div>", unsafe_allow_html=True)
         
-    if st.button("NEXT PLAYER"):
+    st.markdown("---")
+    col1, col2 = st.columns(2)
+    if col1.button("NEXT PLAYER"):
         st.session_state.page = 'register'
         st.rerun()
-    if st.button("NEW TOURNAMENT (RESET ALL)"):
+    if col2.button("RESET TOURNAMENT"):
         st.session_state.clear()
         st.rerun()
