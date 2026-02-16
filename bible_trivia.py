@@ -118,13 +118,13 @@ elif st.session_state.page == 'register':
     st.markdown("<h2 style='text-align: center; color: white;'>Player Entry</h2>", unsafe_allow_html=True)
     name = st.text_input("Player Name")
     limit = st.selectbox("Time Limit (Seconds)", [30, 60, 120, 300], index=1)
-    if st.button("START QUIZ"):
+    
+    col1, col2 = st.columns(2)
+    if col1.button("START QUIZ"):
         if name:
-            # SHUFFLE QUESTIONS ONCE HERE TO PREVENT REPETITION
             all_qs = json.load(open('questions.json')) if os.path.exists('questions.json') else []
             shuffled_indices = list(range(len(all_qs)))
             random.shuffle(shuffled_indices)
-            
             st.session_state.update({
                 'page': 'quiz', 'p_name': name, 'time_limit': limit,
                 'start_time': time.time(), 'score': 0, 
@@ -132,27 +132,27 @@ elif st.session_state.page == 'register':
                 'wrong_answers': []
             })
             st.rerun()
+    if col2.button("QUIT"):
+        st.session_state.clear()
+        st.session_state.page = 'welcome'
+        st.rerun()
 
 elif st.session_state.page == 'quiz':
     play_audio("background_music.mp3")
     high_speed_timer()
     
-    # Load and check bounds
     all_qs = json.load(open('questions.json'))
     step = st.session_state.current_step
     
     if step < len(st.session_state.shuffled_indices):
-        # Pick the unique question for this step
         q_idx = st.session_state.shuffled_indices[step]
         q = all_qs[q_idx]
         
-        # Display Question Box (Fixed: Rendering before buttons)
         st.markdown(f"""<div class="question-box">
             <p style="opacity:0.6; font-size:14px; margin:0;">QUESTION {step+1} OF {len(all_qs)}</p>
             <h2 style="margin-top:10px;">{q['question']}</h2>
         </div>""", unsafe_allow_html=True)
         
-        # Display Options
         for opt in q['options']:
             if st.button(opt, key=f"q{step}_{opt}"):
                 if opt == q['answer']: st.session_state.score += 1
@@ -174,14 +174,20 @@ elif st.session_state.page == 'summary':
                 st.markdown(f"<div style='background:white; color:black; padding:10px; border-radius:10px; margin-bottom:5px;'><b>Q: {item['question']}</b><br><span style='color:red;'>Your: {item['yours']}</span> | <span style='color:green;'>Correct: {item['correct']}</span></div>", unsafe_allow_html=True)
 
     cA, cB, cC = st.columns(3)
-    if cA.button("NEXT PLAYER"): st.session_state.page = 'register'; st.rerun()
-    if cB.button("LEADERBOARD"): st.session_state.page = 'final'; st.rerun()
-    if cC.button("QUIT"): st.session_state.clear(); st.rerun()
+    if cA.button("NEXT PLAYER"): 
+        st.session_state.page = 'register'
+        st.rerun()
+    if cB.button("LEADERBOARD"): 
+        st.session_state.page = 'final'
+        st.rerun()
+    if cC.button("QUIT"): 
+        st.session_state.clear()
+        st.session_state.page = 'welcome'
+        st.rerun()
 
 elif st.session_state.page == 'final':
     play_audio("winner_sound.mp3.mp3", loop=False)
     
-    # Balloons Spread
     balloon_list = ["🎈", "🎊", "✨", "⭐"]
     balloons_html = "".join([f'<div class="balloon" style="left:{random.randint(0,95)}%; bottom:{random.randint(-20, 50)}vh; animation-delay:{random.uniform(0,8)}s;">{random.choice(balloon_list)}</div>' for _ in range(40)])
     st.markdown(balloons_html, unsafe_allow_html=True)
@@ -191,6 +197,14 @@ elif st.session_state.page == 'final':
     for i, (n, s) in enumerate(scores):
         st.markdown(f"<div style='background:white; color:#1e5631; padding:15px; border-radius:15px; margin:10px 0; text-align:center; font-weight:bold; font-size:20px;'>{i+1}. {n.upper()} — {s} PTS</div>", unsafe_allow_html=True)
         
-    c1, c2 = st.columns(2)
-    if c1.button("NEXT PLAYER"): st.session_state.page = 'register'; st.rerun()
-    if c2.button("RESET TOURNAMENT"): st.session_state.clear(); st.rerun()
+    c1, c2, c3 = st.columns(3)
+    if c1.button("NEXT PLAYER"): 
+        st.session_state.page = 'register'
+        st.rerun()
+    if c2.button("RESET ALL"): 
+        st.session_state.clear()
+        st.rerun()
+    if c3.button("QUIT"): 
+        st.session_state.clear()
+        st.session_state.page = 'welcome'
+        st.rerun()
